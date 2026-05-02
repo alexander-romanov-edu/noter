@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import datetime
 
 
-# ================= USERS =================
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -19,13 +18,11 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
-# ================= AUTH =================
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 
-# ================= EXERCISES =================
 class ExerciseCreate(BaseModel):
     name: str
     muscle_group: Optional[str] = None
@@ -40,7 +37,6 @@ class ExerciseOut(BaseModel):
         from_attributes = True
 
 
-# ================= SESSIONS =================
 class SessionCreate(BaseModel):
     notes: Optional[str] = None
 
@@ -54,7 +50,6 @@ class SessionOut(BaseModel):
         from_attributes = True
 
 
-# ================= SETS =================
 class SetCreate(BaseModel):
     session_id: int
     exercise_id: int
