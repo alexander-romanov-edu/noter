@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
 from datetime import datetime
 
 from database import SessionLocal, engine
@@ -17,14 +16,21 @@ class NoteCreate(BaseModel):
     content: str
 
 
+class NoteUpdate(BaseModel):
+    content: str
+    pinned: bool = False
+
+
 class NoteResponse(BaseModel):
     id: int
     content: str
+    pinned: bool
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
 
 def get_db():
     db = SessionLocal()
@@ -33,13 +39,26 @@ def get_db():
     finally:
         db.close()
 
+
 @app.get("/")
 def serve_ui():
     return FileResponse("static/index.html")
 
-@app.get("/notes", response_model=List[NoteResponse])
-def get_notes(db: Session = Depends(get_db)):
-    return db.query(Note).order_by(Note.created_at).all()
+
+@app.get("/notes")
+def get_notes(
+    db: Session = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    notes = (
+        db.query(Note)
+        .order_by(Note.pinned.desc(), Note.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return notes
 
 
 @app.post("/notes", response_model=NoteResponse)
@@ -49,31 +68,21 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
 
     db_note = Note(
         content=note.content,
+        pinned=False,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
+
     db.add(db_note)
     db.commit()
     db.refresh(db_note)
     return db_note
 
 
-@app.delete("/notes/{note_id}")
-def delete_note(note_id: int, db: Session = Depends(get_db)):
-    note = db.query(Note).filter(Note.id == note_id).first()
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-
-    db.delete(note)
-    db.commit()
-    db.refresh(db_note)
-    return {"message": "deleted"}
-
-
 @app.put("/notes/{note_id}", response_model=NoteResponse)
 def update_note(
     note_id: int,
-    updated: NoteCreate = Body(...),
+    updated: NoteUpdate,
     db: Session = Depends(get_db)
 ):
     note = db.query(Note).filter(Note.id == note_id).first()
@@ -85,8 +94,23 @@ def update_note(
         raise HTTPException(status_code=400, detail="Empty note")
 
     note.content = updated.content
+    note.pinned = updated.pinned
     note.updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(note)
 
     return note
+
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: int, db: Session = Depends(get_db)):
+    note = db.query(Note).filter(Note.id == note_id).first()
+
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    db.delete(note)
+    db.commit()
+
+    return {"message": "deleted"}
