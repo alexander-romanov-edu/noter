@@ -1,39 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.auth import hash_password, verify_password, create_access_token
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter()
 
 
-@router.post("/register", response_model=schemas.UserOut)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(models.User).filter(models.User.username == user.username).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    new_user = models.User(
-        username=user.username,
-        email=user.email,
-        hashed_password=hash_password(user.password),
-    )
-
-    db.add(new_user)
+@router.post("/", response_model=schemas.ExerciseOut)
+def create_exercise(ex: schemas.ExerciseCreate, db: Session = Depends(get_db)):
+    exercise = models.Exercise(name=ex.name)
+    db.add(exercise)
     db.commit()
-    db.refresh(new_user)
+    db.refresh(exercise)
+    return exercise
 
-    return new_user
 
-
-@router.post("/login", response_model=schemas.Token)
-def login(username: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == username).first()
-
-    if not user or not verify_password(password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    token = create_access_token({"sub": str(user.id)})
-
-    return {"access_token": token, "token_type": "bearer"}
+@router.get("/", response_model=list[schemas.ExerciseOut])
+def list_exercises(db: Session = Depends(get_db)):
+    return db.query(models.Exercise).all()

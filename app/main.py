@@ -1,21 +1,32 @@
 from fastapi import FastAPI
-
-from app.database import engine, Base
-from app import models
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import auth, exercises, sessions, sets, stats
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Gym Tracker API")
 
-app.include_router(auth.router)
-app.include_router(exercises.router)
-app.include_router(sessions.router)
-app.include_router(sets.router)
-app.include_router(stats.router)
+# allow frontend calls
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# API routes
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(exercises.router, prefix="/exercises", tags=["exercises"])
+app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
+app.include_router(sets.router, prefix="/sets", tags=["sets"])
+app.include_router(stats.router, prefix="/stats", tags=["stats"])
+
+# serve frontend
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 @app.get("/")
-def root():
-    return {"message": "Gym Tracker API is running"}
+def frontend():
+    return FileResponse("app/static/index.html")

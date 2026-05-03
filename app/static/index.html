@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gym Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>🏋️ Gym Tracker</h1>
+
+    <div>
+        <input id="email" placeholder="email">
+        <input id="password" type="password" placeholder="password">
+        <button onclick="register()">Register</button>
+        <button onclick="login()">Login</button>
+    </div>
+
+    <hr>
+
+    <div>
+        <input id="exercise" placeholder="exercise name">
+        <button onclick="addExercise()">Add Exercise</button>
+        <button onclick="loadExercises()">Load Exercises</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script src="/static/app.js"></script>
+    <hr>
+    
+    <h2>Workout Session</h2>
+    
+    <button onclick="startSession()">Start Workout</button>
+    <p id="sessionInfo">No active session</p>
+    
+    <select id="exerciseSelect"></select>
+    <input id="weight" placeholder="weight">
+    <input id="reps" placeholder="reps">
+    
+    <button onclick="addSet()">Add Set</button>
+    
+    <h3>Logged Sets</h3>
+    <pre id="setsOutput"></pre>
+</body>
+</html>

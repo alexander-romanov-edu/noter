@@ -1,70 +1,64 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, EmailStr
+
 from datetime import datetime
 
 
-class UserCreate(BaseModel):
-    username: str
-    email: str
-    password: str
 
-
-class UserOut(BaseModel):
-    id: int
-    username: str
-    email: str
-
-    class Config:
-        from_attributes = True
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class ExerciseCreate(BaseModel):
-    name: str
-    muscle_group: Optional[str] = None
-
-
-class ExerciseOut(BaseModel):
-    id: int
-    name: str
-    muscle_group: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-class SessionCreate(BaseModel):
-    notes: Optional[str] = None
-
-
-class SessionOut(BaseModel):
-    id: int
-    notes: Optional[str]
-    date: datetime
-
-    class Config:
-        from_attributes = True
-
-
+class SetUpdate(BaseModel):
+    weight: int | None = None
+    reps: int | None = None
 class SetCreate(BaseModel):
     session_id: int
     exercise_id: int
-    weight: float
+    weight: int
     reps: int
-    set_number: int
 
 
 class SetOut(BaseModel):
     id: int
     session_id: int
     exercise_id: int
-    weight: float
+    weight: int
     reps: int
-    set_number: int
+
+    class Config:
+        from_attributes = True
+class SessionCreate(BaseModel):
+    pass  # no input needed, just create session
+
+
+class SessionOut(BaseModel):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    email: str | None = None
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserOut(BaseModel):
+    id: int
+    email: EmailStr
+
+    class Config:
+        from_attributes = True
+
+class ExerciseCreate(BaseModel):
+    name: str
+
+class ExerciseOut(BaseModel):
+    id: int
+    name: str
 
     class Config:
         from_attributes = True
