@@ -33,19 +33,43 @@
             margin-bottom: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+
+            cursor: pointer;
+
+            transition: all 0.2s ease;
+        }
+
+        .note:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
         }
 
         .content {
             white-space: pre-wrap;
             line-height: 1.4;
+            position: relative;
         }
 
-        /* 🔥 3-line clamp */
         .note.collapsed .content {
             display: -webkit-box;
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
+        }
+
+        .note.collapsed .content::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), white);
+            pointer-events: none;
+        }
+
+        .note .content {
+            transition: all 0.2s ease;
         }
 
         .meta {
@@ -87,55 +111,46 @@ async function loadNotes() {
 
     notes.forEach(note => {
         const div = document.createElement("div");
-        div.className = "note collapsed"; // default: 3 lines
+        div.className = "note collapsed";
 
-        // CONTENT
         const content = document.createElement("div");
         content.className = "content";
         content.textContent = note.content;
 
-        // TOGGLE BUTTON
-        const toggleBtn = document.createElement("button");
-        toggleBtn.textContent = "Show more";
-
-        toggleBtn.onclick = () => {
-            const isCollapsed = div.classList.contains("collapsed");
-
-            if (isCollapsed) {
-                div.classList.remove("collapsed");
-                toggleBtn.textContent = "Show less";
-            } else {
-                div.classList.add("collapsed");
-                toggleBtn.textContent = "Show more";
-            }
-        };
-
-        // META
         const meta = document.createElement("div");
         meta.className = "meta";
         meta.textContent =
             "Created: " + formatDate(note.created_at) +
             " | Updated: " + formatDate(note.updated_at);
 
-        // ACTIONS
         const actions = document.createElement("div");
         actions.className = "actions";
 
         const editBtn = document.createElement("button");
         editBtn.textContent = "Edit";
-        editBtn.onclick = () => startEdit(note, div);
+        editBtn.onclick = (e) => {
+            e.stopPropagation(); // prevent toggle
+            startEdit(note, div);
+        };
 
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
-        delBtn.onclick = () => deleteNote(note.id);
+        delBtn.onclick = (e) => {
+            e.stopPropagation(); // prevent toggle
+            deleteNote(note.id);
+        };
 
-        actions.appendChild(toggleBtn);
         actions.appendChild(editBtn);
         actions.appendChild(delBtn);
 
         div.appendChild(content);
         div.appendChild(meta);
         div.appendChild(actions);
+
+        div.onclick = () => {
+            const isCollapsed = div.classList.contains("collapsed");
+            div.classList.toggle("collapsed", !isCollapsed);
+        };
 
         container.appendChild(div);
     });
