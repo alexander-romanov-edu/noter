@@ -11,26 +11,27 @@ app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
-
 class NoteCreate(BaseModel):
     content: str
+    tags: str = ""
 
 
 class NoteUpdate(BaseModel):
     content: str
     pinned: bool = False
+    tags: str = ""
 
 
 class NoteResponse(BaseModel):
     id: int
     content: str
     pinned: bool
+    tags: str
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
-
 
 def get_db():
     db = SessionLocal()
@@ -44,19 +45,23 @@ def get_db():
 def serve_ui():
     return FileResponse("static/index.html")
 
-
 @app.get("/notes")
 def get_notes(
     db: Session = Depends(get_db),
-    limit: int = 10,
+    limit: int = 5,
     offset: int = 0,
     search: str | None = None,
-    sort: str = "newest"
+    sort: str = "newest",
+    tag: str | None = None
 ):
     query = db.query(Note)
 
     if search:
         query = query.filter(Note.content.ilike(f"%{search}%"))
+
+    if tag:
+        query = query.filter(Note.tags.ilike(f"%{tag}%"))
+
     if sort == "newest":
         query = query.order_by(Note.pinned.desc(), Note.created_at.desc())
     elif sort == "oldest":
@@ -65,8 +70,10 @@ def get_notes(
         query = query.order_by(Note.pinned.desc(), Note.content.asc())
     elif sort == "za":
         query = query.order_by(Note.pinned.desc(), Note.content.desc())
-    notes = query.offset(offset).limit(limit).all()
-    return notes
+
+    return query.offset(offset).limit(limit).all()
+
+
 @app.post("/notes", response_model=NoteResponse)
 def create_note(note: NoteCreate, db: Session = Depends(get_db)):
     if not note.content.strip():
@@ -74,6 +81,7 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
 
     db_note = Note(
         content=note.content,
+        tags=note.tags,
         pinned=False,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
@@ -86,11 +94,7 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/notes/{note_id}", response_model=NoteResponse)
-def update_note(
-    note_id: int,
-    updated: NoteUpdate,
-    db: Session = Depends(get_db)
-):
+def update_note(note_id: int, updated: NoteUpdate, db: Session = Depends(get_db)):
     note = db.query(Note).filter(Note.id == note_id).first()
 
     if not note:
@@ -101,11 +105,11 @@ def update_note(
 
     note.content = updated.content
     note.pinned = updated.pinned
+    note.tags = updated.tags
     note.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(note)
-
     return note
 
 

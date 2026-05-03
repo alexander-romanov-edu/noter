@@ -5,25 +5,21 @@
 
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             max-width: 700px;
             margin: 40px auto;
             background: #f5f5f5;
         }
 
-        h1 {
-            text-align: center;
-        }
-
-        textarea {
+        textarea, input, select {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
+            padding: 6px;
+            margin-bottom: 8px;
         }
 
         button {
-            margin: 5px 5px 5px 0;
-            padding: 5px 10px;
+            margin: 4px;
+            padding: 6px 10px;
             cursor: pointer;
         }
 
@@ -38,10 +34,9 @@
 
         .content {
             white-space: pre-wrap;
-            line-height: 1.4;
+            overflow: hidden;
             display: -webkit-box;
             -webkit-box-orient: vertical;
-            overflow: hidden;
         }
 
         .note.collapsed .content {
@@ -51,13 +46,13 @@
         .meta {
             font-size: 0.8em;
             color: gray;
-            margin-top: 10px;
+            margin-top: 8px;
         }
 
         .actions {
-            margin-top: 10px;
             display: flex;
             gap: 5px;
+            margin-top: 8px;
         }
 
         .pin {
@@ -65,39 +60,66 @@
         }
 
         .pinned {
-            border-left: 4px solid #ffb400;
+            border-left: 4px solid orange;
         }
 
         .pagination {
             display: flex;
             justify-content: space-between;
-            margin-top: 20px;
+            margin-top: 15px;
+        }
+
+        #tagSuggestions {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            width: 100%;
+            z-index: 9999;
+            display: none;
+        }
+
+        #tagSuggestions div {
+            padding: 6px;
+            cursor: pointer;
+        }
+
+        #tagSuggestions div:hover {
+            background: #eee;
+        }
+
+        .tag-wrapper {
+            position: relative;
         }
     </style>
 </head>
 
 <body>
 
-<h1>Notes</h1>
+<h2>Notes</h2>
 
-<textarea id="noteInput" rows="3" placeholder="Write a note..."></textarea>
-<br>
+<textarea id="noteInput" rows="3" placeholder="Write note..."></textarea>
+
+<div class="tag-wrapper">
+    <input id="tagsInput" placeholder="tags (comma separated)">
+    <div id="tagSuggestions"></div>
+</div>
+
 <button onclick="addNote()">Add</button>
 
-<div style="display:flex; gap:10px; margin-bottom:10px;">
-    <input id="searchBox" placeholder="Search notes..." style="flex:1; padding:5px;">
-    
-    <select id="sortBox">
-        <option value="newest">Newest</option>
-        <option value="oldest">Oldest</option>
-        <option value="az">A → Z</option>
-        <option value="za">Z → A</option>
-    </select>
-</div>
+<input id="searchBox" placeholder="search...">
+<input id="tagFilter" placeholder="filter by tag...">
+
+<select id="sortBox">
+    <option value="newest">Newest</option>
+    <option value="oldest">Oldest</option>
+    <option value="az">A-Z</option>
+    <option value="za">Z-A</option>
+</select>
+
 <div id="notesList"></div>
 
 <div class="pagination">
-    <button onclick="prevPage()">Previous</button>
+    <button onclick="prevPage()">Prev</button>
     <button onclick="nextPage()">Next</button>
 </div>
 
@@ -105,22 +127,44 @@
 const API_URL = "http://127.0.0.1:8000";
 
 let offset = 0;
-const limit = 5;
-let searchTimeout = null;
+const limit = 10;
+let debounce = null;
 
-function formatDate(dateStr) {
-    const d = new Date(dateStr);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+let allTags = new Set();
+
+const tagInput = document.getElementById("tagsInput");
+const suggestionsBox = document.getElementById("tagSuggestions");
+
+function formatDate(d) {
+    const date = new Date(d);
+    return isNaN(date) ? "—" : date.toLocaleString();
+}
+
+function rebuildAllTags(notes) {
+    allTags.clear();
+
+    notes.forEach(note => {
+        if (note.tags) {
+            note.tags.split(",")
+                .map(t => t.trim())
+                .filter(Boolean)
+                .forEach(t => allTags.add(t));
+        }
+    });
 }
 
 async function loadNotes() {
-    const search = document.getElementById("searchBox").value;
-    const sort = document.getElementById("sortBox").value;
+    const search = searchBox.value;
+    const sort = sortBox.value;
+    const tag = tagFilter.value;
+
     const res = await fetch(
-        `${API_URL}/notes?limit=${limit}&offset=${offset}&search=${encodeURIComponent(search)}&sort=${sort}`
+        `${API_URL}/notes?limit=${limit}&offset=${offset}&search=${encodeURIComponent(search)}&sort=${sort}&tag=${encodeURIComponent(tag)}`
     );
 
     const notes = await res.json();
+
+    rebuildAllTags(notes);
 
     const container = document.getElementById("notesList");
     container.innerHTML = "";
@@ -137,55 +181,92 @@ async function loadNotes() {
         const meta = document.createElement("div");
         meta.className = "meta";
         meta.textContent =
-            "Created: " + formatDate(note.created_at) +
+            "Tags: " + note.tags +
+            " | Created: " + formatDate(note.created_at) +
             " | Updated: " + formatDate(note.updated_at);
 
         const actions = document.createElement("div");
         actions.className = "actions";
 
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "Edit";
-        editBtn.onclick = (e) => {
+        const edit = document.createElement("button");
+        edit.textContent = "Edit";
+        edit.onclick = (e) => {
             e.stopPropagation();
             startEdit(note, div);
         };
 
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "Delete";
-        delBtn.onclick = (e) => {
+        const del = document.createElement("button");
+        del.textContent = "Delete";
+        del.onclick = (e) => {
             e.stopPropagation();
             deleteNote(note.id);
         };
 
-        const pinBtn = document.createElement("button");
-        pinBtn.className = "pin";
-        pinBtn.textContent = note.pinned ? "Unpin" : "Pin";
-        pinBtn.onclick = async (e) => {
+        const pin = document.createElement("button");
+        pin.textContent = note.pinned ? "Unpin" : "Pin";
+        pin.className = "pin";
+        pin.onclick = (e) => {
             e.stopPropagation();
-            await togglePin(note);
+            togglePin(note);
         };
 
-        actions.appendChild(editBtn);
-        actions.appendChild(delBtn);
-        actions.appendChild(pinBtn);
+        actions.append(edit, del, pin);
 
-        div.appendChild(content);
-        div.appendChild(meta);
-        div.appendChild(actions);
+        div.append(content, meta, actions);
 
-        div.onclick = () => {
-            div.classList.toggle("collapsed");
-        };
+        div.onclick = () => div.classList.toggle("collapsed");
 
         container.appendChild(div);
     });
 
-    updatePaginationButtons(notes.length);
+    document.querySelector("button[onclick='prevPage()']").disabled = offset === 0;
+    document.querySelector("button[onclick='nextPage()']").disabled = notes.length < limit;
 }
 
-function updatePaginationButtons(count) {
-    document.querySelector("button[onclick='prevPage()']").disabled = offset === 0;
-    document.querySelector("button[onclick='nextPage()']").disabled = count < limit;
+function debounceLoad() {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+        offset = 0;
+        loadNotes();
+    }, 300);
+}
+
+searchBox.oninput = debounceLoad;
+tagFilter.oninput = debounceLoad;
+sortBox.onchange = () => { offset = 0; loadNotes(); };
+
+async function addNote() {
+    await fetch(`${API_URL}/notes`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            content: noteInput.value,
+            tags: tagsInput.value
+        })
+    });
+
+    noteInput.value = "";
+    tagsInput.value = "";
+    loadNotes();
+}
+
+async function deleteNote(id) {
+    await fetch(`${API_URL}/notes/${id}`, { method: "DELETE" });
+    loadNotes();
+}
+
+async function togglePin(note) {
+    await fetch(`${API_URL}/notes/${note.id}`, {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            content: note.content,
+            pinned: !note.pinned,
+            tags: note.tags
+        })
+    });
+
+    loadNotes();
 }
 
 function nextPage() {
@@ -198,95 +279,80 @@ function prevPage() {
     loadNotes();
 }
 
-async function togglePin(note) {
-    await fetch(`${API_URL}/notes/${note.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            content: note.content,
-            pinned: !note.pinned
-        })
-    });
-
-    loadNotes();
-}
-
 function startEdit(note, div) {
     div.innerHTML = "";
 
-    const textarea = document.createElement("textarea");
-    textarea.value = note.content;
-    textarea.rows = 4;
-    textarea.style.width = "100%";
-    textarea.focus();
+    const ta = document.createElement("textarea");
+    ta.value = note.content;
 
-    textarea.addEventListener("keydown", (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-            saveEdit(note.id, textarea.value);
-        }
-        if (e.key === "Escape") {
-            loadNotes();
-        }
-    });
+    const tg = document.createElement("input");
+    tg.value = note.tags;
 
-    const saveBtn = document.createElement("button");
-    saveBtn.textContent = "Save";
-    saveBtn.onclick = () => saveEdit(note.id, textarea.value);
+    const save = document.createElement("button");
+    save.textContent = "Save";
+    save.onclick = async () => {
+        await fetch(`${API_URL}/notes/${note.id}`, {
+            method: "PUT",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({
+                content: ta.value,
+                pinned: note.pinned,
+                tags: tg.value
+            })
+        });
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.onclick = loadNotes;
+        loadNotes();
+    };
 
-    div.appendChild(textarea);
-    div.appendChild(saveBtn);
-    div.appendChild(cancelBtn);
+    div.append(ta, tg, save);
 }
 
-async function saveEdit(id, content) {
-    await fetch(`${API_URL}/notes/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content })
+/* AUTOCOMPLETE */
+
+tagInput.addEventListener("input", () => {
+    const value = tagInput.value;
+    const parts = value.split(",");
+    const current = parts[parts.length - 1].trim().toLowerCase();
+
+    if (!current) {
+        suggestionsBox.style.display = "none";
+        return;
+    }
+
+    const matches = [...allTags]
+        .filter(t => t.toLowerCase().startsWith(current))
+        .slice(0, 5);
+
+    if (matches.length === 0) {
+        suggestionsBox.style.display = "none";
+        return;
+    }
+
+    suggestionsBox.innerHTML = "";
+    suggestionsBox.style.display = "block";
+
+    matches.forEach(tag => {
+        const div = document.createElement("div");
+        div.textContent = tag;
+
+        div.onclick = () => {
+            parts[parts.length - 1] = " " + tag;
+            tagInput.value = parts.join(",").replace(/\s+,/g, ",");
+            suggestionsBox.style.display = "none";
+            tagInput.focus();
+        };
+
+        suggestionsBox.appendChild(div);
     });
+});
 
-    loadNotes();
-}
-
-async function addNote() {
-    const input = document.getElementById("noteInput");
-
-    await fetch(`${API_URL}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input.value })
-    });
-
-    input.value = "";
-    loadNotes();
-}
-
-async function deleteNote(id) {
-    await fetch(`${API_URL}/notes/${id}`, {
-        method: "DELETE"
-    });
-
-    loadNotes();
-}
+tagInput.addEventListener("blur", () => {
+    setTimeout(() => {
+        suggestionsBox.style.display = "none";
+    }, 200);
+});
 
 loadNotes();
-document.getElementById("searchBox").addEventListener("input", () => {
-    clearTimeout(searchTimeout);
-
-    searchTimeout = setTimeout(() => {
-        offset = 0;
-        loadNotes();
-    }, 300);
-});
-
-document.getElementById("sortBox").addEventListener("change", () => {
-    offset = 0;
-    loadNotes();
-});
 </script>
 
 </body>
