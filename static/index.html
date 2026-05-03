@@ -84,6 +84,16 @@
 <br>
 <button onclick="addNote()">Add</button>
 
+<div style="display:flex; gap:10px; margin-bottom:10px;">
+    <input id="searchBox" placeholder="Search notes..." style="flex:1; padding:5px;">
+    
+    <select id="sortBox">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+    </select>
+</div>
 <div id="notesList"></div>
 
 <div class="pagination">
@@ -96,6 +106,7 @@ const API_URL = "http://127.0.0.1:8000";
 
 let offset = 0;
 const limit = 5;
+let searchTimeout = null;
 
 function formatDate(dateStr) {
     const d = new Date(dateStr);
@@ -103,7 +114,12 @@ function formatDate(dateStr) {
 }
 
 async function loadNotes() {
-    const res = await fetch(`${API_URL}/notes?limit=${limit}&offset=${offset}`);
+    const search = document.getElementById("searchBox").value;
+    const sort = document.getElementById("sortBox").value;
+    const res = await fetch(
+        `${API_URL}/notes?limit=${limit}&offset=${offset}&search=${encodeURIComponent(search)}&sort=${sort}`
+    );
+
     const notes = await res.json();
 
     const container = document.getElementById("notesList");
@@ -258,6 +274,19 @@ async function deleteNote(id) {
 }
 
 loadNotes();
+document.getElementById("searchBox").addEventListener("input", () => {
+    clearTimeout(searchTimeout);
+
+    searchTimeout = setTimeout(() => {
+        offset = 0;
+        loadNotes();
+    }, 300);
+});
+
+document.getElementById("sortBox").addEventListener("change", () => {
+    offset = 0;
+    loadNotes();
+});
 </script>
 
 </body>

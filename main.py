@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Body
+from fastapi import FastAPI, Depends, HTTPException, Body, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -49,18 +49,24 @@ def serve_ui():
 def get_notes(
     db: Session = Depends(get_db),
     limit: int = 10,
-    offset: int = 0
+    offset: int = 0,
+    search: str | None = None,
+    sort: str = "newest"
 ):
-    notes = (
-        db.query(Note)
-        .order_by(Note.pinned.desc(), Note.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Note)
+
+    if search:
+        query = query.filter(Note.content.ilike(f"%{search}%"))
+    if sort == "newest":
+        query = query.order_by(Note.pinned.desc(), Note.created_at.desc())
+    elif sort == "oldest":
+        query = query.order_by(Note.pinned.desc(), Note.created_at.asc())
+    elif sort == "az":
+        query = query.order_by(Note.pinned.desc(), Note.content.asc())
+    elif sort == "za":
+        query = query.order_by(Note.pinned.desc(), Note.content.desc())
+    notes = query.offset(offset).limit(limit).all()
     return notes
-
-
 @app.post("/notes", response_model=NoteResponse)
 def create_note(note: NoteCreate, db: Session = Depends(get_db)):
     if not note.content.strip():
