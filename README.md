@@ -64,7 +64,7 @@ http://127.0.0.1:8000
 ### 3. Run tests
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ---
@@ -74,7 +74,6 @@ pytest
 If using `direnv`:
 
 ```bash
-echo "use flake" > .envrc
 direnv allow
 ```
 
@@ -94,7 +93,7 @@ source .venv/bin/activate
 ### 2. Install dependencies
 
 ```bash
-pip install fastapi uvicorn sqlalchemy pydantic passlib bcrypt python-jose pytest httpx typing-extensions
+pip install -r requirements.txt
 ```
 
 ---
@@ -216,13 +215,7 @@ DELETE /notes/{id}
 (Optional)
 
 ```bash
-pylint main.py
-```
-
-or recommended:
-
-```bash
-ruff check .
+pylint . --ignore=.venv
 ```
 
 ---

@@ -35,6 +35,7 @@
             pytest
             httpx
             typing-extensions
+            pylint
           ]);
         in {
           imports = [ ./nix/treefmt.nix ];
