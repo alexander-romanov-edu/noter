@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run tests (pytest)
+        run: |
+          nix develop --command pytest -q
+
+  smoke-test-server:
+    runs-on: ubuntu-22.04
+    needs: test-linux
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v24
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Start server and check homepage
+        run: |
+          nix run > server.log 2>&1 &
+          PID=$!
+
+          echo "Waiting for server..."
+
+          for i in {1..120}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/ | grep -q "200"; then
+              echo "✅ Server is up"
+              kill $PID
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "❌ Server failed to start"
+          echo "---- SERVER LOGS ----"
+          cat server.log
+
+          kill $PID
+          exit 1
