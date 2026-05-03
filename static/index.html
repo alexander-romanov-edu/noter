@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notes</title>
+</head>
+<body>
+    <h1>Notes</h1>
+
+    <textarea id="noteInput" rows="3" cols="40" placeholder="Write a note"></textarea>
+    <button onclick="addNote()">Add</button>
+    <ul id="notesList"></ul>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+        
+        async function loadNotes() {
+            const res = await fetch(`${API_URL}/notes`);
+            const notes = await res.json();
+        
+            const list = document.getElementById("notesList");
+            list.innerHTML = "";
+        
+            notes.forEach(note => {
+                const li = document.createElement("li");
+        
+                const span = document.createElement("span");
+                span.innerHTML = note.content.replace(/\n/g, "<br>");
+        
+                const editBtn = document.createElement("button");
+                editBtn.textContent = "Edit";
+                editBtn.onclick = () => startEdit(note, li);
+        
+                const delBtn = document.createElement("button");
+                delBtn.textContent = "Delete";
+                delBtn.onclick = () => deleteNote(note.id);
+        
+                li.appendChild(span);
+                li.appendChild(editBtn);
+                li.appendChild(delBtn);
+        
+                list.appendChild(li);
+            });
+        }
+        
+        function startEdit(note, li) {
+            li.innerHTML = "";
+        
+            const textarea = document.createElement("textarea");
+            textarea.value = note.content;
+            textarea.rows = 3;
+            textarea.cols = 40;
+            textarea.focus();
+        
+            // ✅ Ctrl+Enter (or Cmd+Enter on Mac) to save
+            textarea.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    saveEdit(note.id, textarea.value);
+                }
+                if (e.key === "Escape") {
+                    loadNotes();
+                }
+            });
+        
+            const saveBtn = document.createElement("button");
+            saveBtn.textContent = "Save";
+            saveBtn.onclick = () => saveEdit(note.id, textarea.value);
+        
+            const cancelBtn = document.createElement("button");
+            cancelBtn.textContent = "Cancel";
+            cancelBtn.onclick = loadNotes;
+        
+            li.appendChild(textarea);
+            li.appendChild(saveBtn);
+            li.appendChild(cancelBtn);
+        }        
+        async function saveEdit(id, content) {
+            await fetch(`${API_URL}/notes/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ content })
+            });
+        
+            loadNotes();
+        }
+        
+        async function addNote() {
+            const input = document.getElementById("noteInput");
+            const content = input.value;
+        
+            await fetch(`${API_URL}/notes`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ content })
+            });
+        
+            input.value = "";
+            loadNotes();
+        }
+        
+        async function deleteNote(id) {
+            await fetch(`${API_URL}/notes/${id}`, {
+                method: "DELETE"
+            });
+        
+            loadNotes();
+        }
+        
+        loadNotes();
+    </script>
+</body>
+</html>
