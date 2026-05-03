@@ -21,43 +21,34 @@
       ];
 
       perSystem =
-        { pkgs, ... }:
-        {
+        { pkgs, ... }: let
+          python = pkgs.python313;
+
+          pythonEnv = python.withPackages (ps: with ps; [
+            fastapi
+            uvicorn
+            sqlalchemy
+            pydantic
+            passlib
+            bcrypt
+            python-jose
+            pytest
+            httpx
+            typing-extensions
+          ]);
+        in {
           imports = [ ./nix/treefmt.nix ];
 
           devShells.default = pkgs.mkShell {
             nativeBuildInputs = with pkgs; [ act ];
             buildInputs = with pkgs; [
-              (python3.withPackages (
-                ps: with ps; [
-                  django
-                  psycopg2
-                  pylint-django
-                  pip
-                  sqlite
-                ]
-              ))
-              poetry
-              black
-              ruff
+            pythonEnv
             ];
           };
           apps.default = {
             type = "app";
-            program = "${pkgs.writeShellScript "run-django" ''
-              export PYTHONPATH=$PWD
-
-              PYTHON=${
-                (pkgs.python3.withPackages (
-                  ps: with ps; [
-                    django
-                    psycopg2
-                  ]
-                ))
-              }/bin/python
-
-              $PYTHON $PWD/gym_tracker/manage.py migrate
-              $PYTHON $PWD/gym_tracker/manage.py runserver 0.0.0.0:8000
+            program = "${pkgs.writeShellScript "noter" ''
+              uvicorn main:app --host 127.0.0.1 --reload
             ''}";
           };
         };
