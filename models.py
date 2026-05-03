@@ -1,6 +1,9 @@
-from sqlalchemy import Column, Integer, Text, DateTime, Boolean, String
 from datetime import datetime
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+
 from database import Base
+
 
 class Note(Base):
     __tablename__ = "notes"

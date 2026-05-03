@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException, Body, Query
-from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from datetime import datetime
+
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from database import SessionLocal, engine
 from models import Base, Note
@@ -10,6 +11,7 @@ from models import Base, Note
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
+
 
 class NoteCreate(BaseModel):
     content: str
@@ -33,6 +35,7 @@ class NoteResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -45,6 +48,7 @@ def get_db():
 def serve_ui():
     return FileResponse("static/index.html")
 
+
 @app.get("/notes")
 def get_notes(
     db: Session = Depends(get_db),
@@ -52,7 +56,7 @@ def get_notes(
     offset: int = 0,
     search: str | None = None,
     sort: str = "newest",
-    tag: str | None = None
+    tag: str | None = None,
 ):
     query = db.query(Note)
 
@@ -84,7 +88,7 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
         tags=note.tags,
         pinned=False,
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
     db.add(db_note)
