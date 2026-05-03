@@ -1,10 +1,12 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text)
 from sqlalchemy.orm import relationship
 
 from database import Base
+
+msc_timezone = timezone(timedelta(hours=3))
 
 
 class User(Base):
@@ -26,8 +28,8 @@ class Note(Base):
     pinned = Column(Boolean, default=False)
     tags = Column(String, default="")
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(msc_timezone))
+    updated_at = Column(DateTime, default=datetime.now(msc_timezone))
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     owner = relationship("User", back_populates="notes")
